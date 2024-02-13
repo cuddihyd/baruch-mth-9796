@@ -7,6 +7,7 @@ Students: If you find anything interesting, please make a pull-request against t
 # Resources
 * [CORPORA](CORPORA.md) -- Some places to find text-data for experimentation.
 * [TOOLS](TOOLS.md) -- A list of tools that may be helpful.
-* [PAPERS](PAPERS.md) -- A list of related papers.
+* [READING](READING.md) -- A list of related books and papers.
+
 
   
