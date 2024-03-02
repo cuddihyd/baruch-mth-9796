@@ -7,9 +7,11 @@ We'll start with an *Index Return Measure* that we'll call 3 bucket Daily Return
 1. For the given headline publication date (pub_date), choose the return period pub_date + 1 BD to pub_date + 2 BD.
 2. Compute the Z-Score of the daily return over this period.
 3. Classify that Z-Score using the follwowing bucketing rule:
-  * zscore < -2: 0
-  * -2 <= zscore < 2: 1
-  * zscore >= 2 2
+  * zscore < k1: 0
+  * k1 <= zscore < k2: 1
+  * zscore >= k2: 2
+
+...where we choose k1 and k2 to be reasonably equal-weighted to ease training.
 
 ## Trial-1 Protocol
 

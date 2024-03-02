@@ -1,0 +1,6 @@
+datasets
+transformers[torch]
+tensorflow>=2.15
+evaluate
+yfinance
+requests
