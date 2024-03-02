@@ -2,12 +2,55 @@ import datetime
 import json
 import os
 from pathlib import Path
-from typing import Union, Sequence
+from typing import Union
 
 
 import pandas as pd
 import requests
+import torch
 import yfinance as yf
+from transformers import DistilBertTokenizerFast
+
+
+class GenericDataset(torch.utils.data.Dataset):
+    def __init__(self, encodings, labels):
+        self.encodings = encodings
+        self.labels = labels
+
+    def __getitem__(self, idx):
+        item = {key: torch.tensor(val[idx]) for key, val in self.encodings.items()}
+        item["labels"] = torch.tensor(self.labels[idx])
+        return item
+
+    def __len__(self):
+        return len(self.labels)
+
+
+def make_nytime_dataset(
+    start_year: int,
+    start_month: int,
+    n_months: int,
+    k1: float,
+    k2: float,
+    data_root: Union[Path, str],
+) -> torch.utils.data.Dataset:
+    data_root = Path(data_root)
+    rets = load_yfinance_spy(data_root)['Close']
+    ret_scores = zsbucket(rets, k1, k2)
+    for year, month in _iter_month_params(start_year, start_month, n_months):
+        text_file = load_nyt_file(year, month, data_root)
+        print(year, month, len(text_file["response"]["docs"]), "articles.")
+        texts = []
+        labels = []
+        for article in text_file["response"]["docs"]:            
+            headline = article["headline"]["main"]
+            pub_date = pd.Timestamp(article["pub_date"].split('+')[0])  # Split off TZ so we get a tz-naive timestamp.
+            texts.append(headline)
+            labels.append(ret_scores.asof(pub_date))  # we expect ret_score index to be all tz-naive timestamps.
+
+    tokenizer = DistilBertTokenizerFast.from_pretrained("distilbert-base-uncased")
+    encodings = tokenizer(texts, truncation=True, padding=True)
+    return GenericDataset(encodings=encodings, labels=labels)
 
 
 def zsbucket(rets: pd.Series, k1: float, k2: float) -> pd.Series:
