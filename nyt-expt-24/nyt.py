@@ -8,9 +8,32 @@ from typing import Union
 import pandas as pd
 import requests
 import torch
+from transformers import DistilBertTokenizerFast, DistilBertForSequenceClassification, AdamW
+from torch.utils.data import DataLoader
 import yfinance as yf
-from transformers import DistilBertTokenizerFast
 
+
+def train_model(dataset):
+    device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
+    model = DistilBertForSequenceClassification.from_pretrained('distilbert-base-uncased', num_labels=3)
+    model.to(device)
+    model.train()  # Put the model into "training-mode."
+    train_loader = DataLoader(dataset, batch_size=16, shuffle=True)
+    optim = AdamW(model.parameters(), lr=5e-5)
+    for epoch in range(5):
+        print("\nEpoch", epoch)
+        for batch in train_loader:
+            print(".", end='')
+            optim.zero_grad() # Zero-out gradients.
+            input_ids = batch['input_ids'].to(device)
+            attention_mask = batch['attention_mask'].to(device)
+            labels = batch['labels'].to(device)
+            outputs = model(input_ids, attention_mask=attention_mask, labels=labels)
+            loss = outputs[0]
+            loss.backward() # calculate gradient: dloss/dweights
+            optim.step()
+    print("Done")
+    return model
 
 class GenericDataset(torch.utils.data.Dataset):
     def __init__(self, encodings, labels):
