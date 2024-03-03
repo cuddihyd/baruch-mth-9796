@@ -1,0 +1,22 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "NYTimes Market Experiment"
+version = "0.0.1"
+authors = [
+  { name="David Cuddihy", email="tbd@example.com" },
+]
+description = "Companion code for the Baruch MFE MTH9796 Class."
+readme = "README.md"
+requires-python = ">=3.10"
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+]
+
+[project.urls]
+Homepage = "https://github.com/cuddihyd/baruch-mth-9796"
+Issues = "https://github.com/cuddihyd/baruch-mth-9796/issues"

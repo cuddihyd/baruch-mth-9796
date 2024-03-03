@@ -25,6 +25,7 @@ We'll start with an *Index Return Measure* that we'll call 3 bucket Daily Return
 
 # Notes
 * [Colaboratory Launch URL](https://research.google.com/colaboratory/)
+* [PyPA: Packaging Projects](https://packaging.python.org/en/latest/tutorials/packaging-projects/)
 
 
 
