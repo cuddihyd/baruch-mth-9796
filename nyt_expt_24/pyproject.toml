@@ -1,20 +1,30 @@
 [build-system]
-requires = ["hatchling"]
 build-backend = "hatchling.build"
+requires = ["hatchling"]
 
 [project]
-name = "NYTimes Market Experiment"
-version = "0.0.1"
 authors = [
-  { name="David Cuddihy", email="tbd@example.com" },
+  {name = "David Cuddihy", email = "tbd@example.com"},
+]
+classifiers = [
+  "Programming Language :: Python :: 3",
+  "License :: OSI Approved :: MIT License",
+  "Operating System :: OS Independent",
 ]
 description = "Companion code for the Baruch MFE MTH9796 Class."
+name = "nyt_expt_24"
 readme = "README.md"
 requires-python = ">=3.10"
-classifiers = [
-    "Programming Language :: Python :: 3",
-    "License :: OSI Approved :: MIT License",
-    "Operating System :: OS Independent",
+version = "0.0.1"
+# dynamic = ["dependecies"]
+# dependecies = {file = ["requirements.txt"]}
+dependencies = [
+  "datasets",
+  "transformers[torch]",
+  "tensorflow>=2.15",
+  "evaluate",
+  "yfinance",
+  "requests",
 ]
 
 [project.urls]
