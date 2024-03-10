@@ -1,0 +1,7 @@
+{
+    "python.testing.pytestArgs": [
+        "nyt_expt_24"
+    ],
+    "python.testing.unittestEnabled": false,
+    "python.testing.pytestEnabled": true
+}
