@@ -127,38 +127,6 @@ def make_nytimes_dataset(
         tokenizer=DistilBertTokenizerFast.from_pretrained("distilbert-base-uncased")
     )
 
-def _make_nytimes_dataset(
-    start_year: int,
-    start_month: int,
-    n_months: int,
-    k1: float,
-    k2: float,
-    data_root: Union[Path, str],
-) -> torch.utils.data.Dataset:
-    data_root = Path(data_root)
-    idx = load_yfinance_spy(data_root)["Close"]
-    rets = idx.pct_change()
-    ret_scores = zsbucket(rets, k1, k2)
-    for year, month in _iter_month_params(start_year, start_month, n_months):
-        text_file = load_nyt_file(year, month, data_root)
-        print(year, month, len(text_file["response"]["docs"]), "articles.")
-        texts = []
-        labels = []
-        for article in text_file["response"]["docs"]:
-            headline = article["headline"]["main"]
-            pub_date = pd.Timestamp(
-                article["pub_date"].split("+")[0]
-            )  # Split off TZ-info so we get a tz-naive timestamp.
-            texts.append(headline)
-            label = ret_scores.asof(pub_date)
-            labels.append(
-                label
-            )  # we expect ret_score index to be all tz-naive timestamps.
-
-    tokenizer = DistilBertTokenizerFast.from_pretrained("distilbert-base-uncased")
-    encodings = tokenizer(texts, truncation=True, padding=True)
-    return GenericDataset(encodings=encodings, labels=labels)
-
 
 def zsbucket(rets: pd.Series, k1: float, k2: float) -> pd.Series:
     """A series of bucket-categories calculated from current and all prior returns.
