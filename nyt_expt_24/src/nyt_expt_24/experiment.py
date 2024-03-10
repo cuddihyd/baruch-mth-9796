@@ -2,22 +2,29 @@ import datetime
 import json
 import os
 from collections import defaultdict
+from dataclasses import dataclass
 from functools import reduce
 from pathlib import Path
-from typing import Union, Sequence
+from typing import Union, Sequence, Generator
 
 
 import pandas as pd
 import requests
 import torch
-from transformers import DistilBertTokenizerFast, DistilBertForSequenceClassification, AdamW
+from transformers import (
+    DistilBertTokenizerFast,
+    DistilBertForSequenceClassification,
+    AdamW,
+)
 from torch.utils.data import DataLoader
 import yfinance as yf
 
 
 def train_model(dataset):
-    device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
-    model = DistilBertForSequenceClassification.from_pretrained('distilbert-base-uncased', num_labels=3)
+    device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
+    model = DistilBertForSequenceClassification.from_pretrained(
+        "distilbert-base-uncased", num_labels=3
+    )
     model.to(device)
     model.train()  # Put the model into "training-mode."
     train_loader = DataLoader(dataset, batch_size=16, shuffle=True)
@@ -25,23 +32,24 @@ def train_model(dataset):
     for epoch in range(5):
         print("\nEpoch", epoch)
         for batch in train_loader:
-            print(".", end='')
-            optim.zero_grad() # Zero-out gradients.
-            input_ids = batch['input_ids'].to(device)
-            attention_mask = batch['attention_mask'].to(device)
-            labels = batch['labels'].to(device)
+            print(".", end="")
+            optim.zero_grad()  # Zero-out gradients.
+            input_ids = batch["input_ids"].to(device)
+            attention_mask = batch["attention_mask"].to(device)
+            labels = batch["labels"].to(device)
             outputs = model(input_ids, attention_mask=attention_mask, labels=labels)
             loss = outputs[0]
-            loss.backward() # calculate gradient: dloss/dweights
+            loss.backward()  # calculate gradient: dloss/dweights
             optim.step()
     print("Done")
     return model
 
+
 class GenericDataset(torch.utils.data.Dataset):
-    def __init__(self, encodings: dict, labels:Sequence) -> None:
+    def __init__(self, encodings: dict, labels: Sequence) -> None:
         """
         :param encodings: A dict like {'input_ids':[[token11, token12, ...], [token_n1, token_n2]],  'attention_mask': [[...],...].
-        :param labels: A sequence of labels e.g. 0,1,2, etc. 
+        :param labels: A sequence of labels e.g. 0,1,2, etc.
         """
         self.encodings = encodings
         self.labels = labels
@@ -57,6 +65,41 @@ class GenericDataset(torch.utils.data.Dataset):
         return len(self.labels)
 
 
+def iter_nytimes_articles(start_year, start_month, n_months, data_root):
+    for year, month in _iter_month_params(start_year, start_month, n_months):
+        text_file = load_nyt_file(year, month, data_root)
+        print(year, month, len(text_file["response"]["docs"]), "articles.")
+        for article in text_file["response"]["docs"]:
+            yield article
+
+
+@dataclass
+class DatedText:
+    pub_date: datetime.date
+    text: str
+
+
+def make_dated_text_dated_index_dataset(
+    dated_text_generator: Generator[DatedText, None, None],
+    market_index: pd.Series,
+    tokenizer,
+) -> GenericDataset:
+    texts = []
+    labels = []
+    for dated_text in dated_text_generator:
+        texts.append(dated_text.text)
+        labels.append(market_index.asof(dated_text.pub_date))
+    encodings = tokenizer(texts, truncation=True, padding=True)
+    return GenericDataset(encodings=encodings, labels=labels)
+
+
+def nyt_article_to_dated_text(article):
+    headline = article["headline"]["main"]
+    pub_date = article["pub_date"]
+    dt_pub_date = pd.Timestamp(pub_date.split("+")[0])
+    return DatedText(text=headline, pub_date=dt_pub_date)
+
+
 def make_nytimes_dataset(
     start_year: int,
     start_month: int,
@@ -66,7 +109,34 @@ def make_nytimes_dataset(
     data_root: Union[Path, str],
 ) -> torch.utils.data.Dataset:
     data_root = Path(data_root)
-    idx = load_yfinance_spy(data_root)['Close']
+    spy = load_yfinance_spy(data_root)["Close"]
+    rets = spy.pct_change()
+    zs_cats = zsbucket(rets, k1, k2)
+    article_generator = map(
+        nyt_article_to_dated_text,
+        iter_nytimes_articles(
+            start_year=start_year,
+            start_month=start_month,
+            n_months=n_months,
+            data_root=data_root,
+        ),
+    )
+    return make_dated_text_dated_index_dataset(
+        dated_text_generator=article_generator,
+        market_index=zs_cats,
+        tokenizer=DistilBertTokenizerFast.from_pretrained("distilbert-base-uncased")
+    )
+
+def _make_nytimes_dataset(
+    start_year: int,
+    start_month: int,
+    n_months: int,
+    k1: float,
+    k2: float,
+    data_root: Union[Path, str],
+) -> torch.utils.data.Dataset:
+    data_root = Path(data_root)
+    idx = load_yfinance_spy(data_root)["Close"]
     rets = idx.pct_change()
     ret_scores = zsbucket(rets, k1, k2)
     for year, month in _iter_month_params(start_year, start_month, n_months):
@@ -74,12 +144,16 @@ def make_nytimes_dataset(
         print(year, month, len(text_file["response"]["docs"]), "articles.")
         texts = []
         labels = []
-        for article in text_file["response"]["docs"]:            
+        for article in text_file["response"]["docs"]:
             headline = article["headline"]["main"]
-            pub_date = pd.Timestamp(article["pub_date"].split('+')[0])  # Split off TZ-info so we get a tz-naive timestamp.
+            pub_date = pd.Timestamp(
+                article["pub_date"].split("+")[0]
+            )  # Split off TZ-info so we get a tz-naive timestamp.
             texts.append(headline)
             label = ret_scores.asof(pub_date)
-            labels.append(label)  # we expect ret_score index to be all tz-naive timestamps.
+            labels.append(
+                label
+            )  # we expect ret_score index to be all tz-naive timestamps.
 
     tokenizer = DistilBertTokenizerFast.from_pretrained("distilbert-base-uncased")
     encodings = tokenizer(texts, truncation=True, padding=True)
@@ -184,28 +258,35 @@ def _dump_json_to_file(resp_json: object, year: int, month: int, data_root: Path
         json.dump(resp_json, fp)
 
 
-def make_nyt_test_data(source_data_root:str, target_data_root:str, start_year, start_month, n_periods, max_articles_per_day):
+def make_nyt_test_data(
+    source_data_root: str,
+    target_data_root: str,
+    start_year,
+    start_month,
+    n_periods,
+    max_articles_per_day,
+):
     target_data_root = Path(target_data_root) / "nyt-archive-data/"
-    for (year, month) in _iter_month_params(start_year, start_month, n_periods):
+    for year, month in _iter_month_params(start_year, start_month, n_periods):
         nyt_json = load_nyt_file(year, month, source_data_root)
         new_json = slim_nyt_json(nyt_json, max_articles_per_day=max_articles_per_day)
-        _dump_json_to_file(resp_json=new_json, year=year, month=month, data_root=target_data_root)
+        _dump_json_to_file(
+            resp_json=new_json, year=year, month=month, data_root=target_data_root
+        )
 
 
-def slim_nyt_json(nyt_json:dict, max_articles_per_day:int) -> dict:
+def slim_nyt_json(nyt_json: dict, max_articles_per_day: int) -> dict:
     """Given a dict loaded from a NYTimes JSON file, return a slimmed-down version."""
     new_json = {"copyright": nyt_json["copyright"]}
-    new_docs = _slim_docs(nyt_json['response']['docs'], max_articles_per_day)
-    new_json['response'] = {
-        "docs": new_docs,
-        "meta": {"hits": len(new_docs)}
-    }
+    new_docs = _slim_docs(nyt_json["response"]["docs"], max_articles_per_day)
+    new_json["response"] = {"docs": new_docs, "meta": {"hits": len(new_docs)}}
     return new_json
 
-def _slim_docs(docs:Sequence[dict], max_articles_per_day:int) -> Sequence[dict]:
+
+def _slim_docs(docs: Sequence[dict], max_articles_per_day: int) -> Sequence[dict]:
     perday = defaultdict(list)
     for doc in docs:
-        dt = pd.Timestamp(doc['pub_date']).normalize()
+        dt = pd.Timestamp(doc["pub_date"]).normalize()
         if len(perday[dt]) < max_articles_per_day:
             perday[dt].append(doc)
-    return reduce(lambda l,e:l+e, perday.values(), [])
+    return reduce(lambda l, e: l + e, perday.values(), [])
