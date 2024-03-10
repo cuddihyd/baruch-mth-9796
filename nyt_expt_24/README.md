@@ -22,8 +22,27 @@ We'll start with an *Index Return Measure* that we'll call 3 bucket Daily Return
 5. Measure the model's predictive power on the test-dataset.
 
 
+# Practical Details
 
-# Notes
+## Building a Wheel
+The `pyproject.yaml` is the blueprint.  To build the wheel:
+
+```
+python3 -m pip install --upgrade build
+python3 -m build
+```
+
+For each new build I tick the version and tag:
+1. Edit the version in `pyproject.yaml`
+2. `git tag 'nyt_expt_24_0.0.2'`
+3. `git push origin --tags`
+
+
+
+
+
+
+# References
 * [Colaboratory Launch URL](https://research.google.com/colaboratory/)
 * [PyPA: Packaging Projects](https://packaging.python.org/en/latest/tutorials/packaging-projects/)
 
