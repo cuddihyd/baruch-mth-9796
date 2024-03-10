@@ -31,7 +31,7 @@
 
 # Various Unclassified
 * [CNN Q&A Dataset generator](https://github.com/google-deepmind/rc-data) (DeepMind)
-
+* [GDELT](https://blog.gdeltproject.org/)
 
 # Other Lists
 * [nlp-datasets](https://github.com/niderhoff/nlp-datasets) (Nicholas Iderhoff)
