@@ -30,3 +30,7 @@ dependencies = [
 [project.urls]
 Homepage = "https://github.com/cuddihyd/baruch-mth-9796"
 Issues = "https://github.com/cuddihyd/baruch-mth-9796/issues"
+
+[tool.pytest.ini_options]
+pythonpath = "src"
+testpaths = "tests"

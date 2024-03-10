@@ -4,3 +4,4 @@ tensorflow>=2.15
 evaluate
 yfinance
 requests
+torch
